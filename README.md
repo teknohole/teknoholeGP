@@ -24,126 +24,110 @@ yarn add @teknohole/teknohole
 
 ### 2. Inisialisasi Klien
 
-Pertama, impor (`require`) kelas `WebStorage` dari paket dan buat sebuah *instance* dengan **API Key** dan **Nama Storage** Anda.
-
+### Import dengan Named Export (Recommended)
 ```javascript
-const WebStorage = require('@teknohole/teknohole');
+import { WebStorage } from '@teknohole/teknohole';
 
-// Ganti dengan kredensial Anda
-const apiKey = "API_KEY_ANDA_YANG_SANGAT_RAHASIA";
-const storageName = "NAMA_STORAGE_ANDA";
-
-// Buat instance klien
-const client = new WebStorage({ apiKey, storageName });
+const storage = new WebStorage({
+    apiKey: 'your-api-key',
+    storageName: 'your-storage-name'
+});
 ```
 
----
-
-### 3. Mengunggah File 🖼️
-
-Gunakan metode `uploadFile()` untuk mengunggah file. Karena metode ini bersifat *asynchronous*, Anda harus menggunakan `await` di dalam sebuah `async function`.
-
-#### Contoh Penggunaan
-
+### Import Default
 ```javascript
-const fs = require('fs');
-
-// Fungsi async untuk menjalankan proses upload
-async function unggahGambar() {
-    const filePath = 'gambar-produk.jpg';
-    // Buat file dummy untuk diunggah
-    fs.writeFileSync(filePath, 'ini adalah konten file gambar');
-
-    console.log(`Mencoba mengunggah file: ${filePath}`);
-    const hasilUpload = await client.uploadFile(filePath);
-
-    if (hasilUpload.success) {
-        const objectKey = hasilUpload.data.key;
-        console.log("✅ Upload Berhasil!");
-        console.log(`   Pesan: ${hasilUpload.message}`);
-        console.log(`   Object Key: ${objectKey}`);
-    } else {
-        console.log("❌ Upload Gagal!");
-        console.log(`   Pesan: ${hasilUpload.message}`);
-    }
-
-    // Hapus file dummy setelah selesai
-    fs.unlinkSync(filePath);
-}
-
-unggahGambar();
+import WebStorage from '@teknohole/teknohole';
 ```
 
----
-### 4. Menghapus File
-
-Gunakan metode `deleteFile()` untuk menghapus file. Metode ini memerlukan `object_key` yang Anda dapatkan saat berhasil mengunggah file.
-
-#### Contoh Penggunaan
-
+### Import Spesifik Node.js
 ```javascript
-async function hapusGambar() {
-    const keyUntukDihapus = "[https://cdn.teknohole.com/](https://cdn.teknohole.com/)<id-akun>/<nama-storage>/<nama-file>";
+// ESM
+import WebStorage from '@teknohole/teknohole/node';
 
-    console.log(`Mencoba menghapus file dengan key: ${keyUntukDihapus}`);
-    const hasilHapus = await client.deleteFile(keyUntukDihapus);
-
-    if (hasilHapus.success) {
-        console.log("✅ File Berhasil Dihapus!");
-    } else {
-        console.log("❌ Gagal Menghapus File!");
-        console.log(`   Pesan: ${hasilHapus.message}`);
-    }
-}
-
-hapusGambar();
+// CommonJS
+const { WebStorage } = require('@teknohole/teknohole/node');
 ```
----
 
-### 5. Contoh Lengkap (Upload lalu Delete)
-
-Berikut adalah contoh lengkap yang menggabungkan semua proses dalam satu skrip.
-
+### Import Spesifik Browser
 ```javascript
-const WebStorage = require('@teknohole/teknohole');
-const fs = require('fs');
+import WebStorage from '@teknohole/teknohole/browser';
+```
 
-const apiKey = "API_KEY_ANDA";
-const storageName = "NAMA_STORAGE_ANDA";
-const client = new WebStorage({ apiKey, storageName });
+### CommonJS (Legacy Support)
+```javascript
+const { WebStorage } = require('@teknohole/teknohole');
+// atau
+const WebStorage = require('@teknohole/teknohole').default;
+```
 
-const namaFileTes = "test_file.txt";
+## 🎯 Penggunaan Praktis
 
-// Gunakan IIFE (Immediately Invoked Function Expression) async
-(async () => {
-    fs.writeFileSync(namaFileTes, "Ini adalah file tes.");
+### Node.js
+```javascript
+import { WebStorage } from '@teknohole/teknohole';
 
-    try {
-        console.log("--- Proses Upload ---");
-        const uploadResult = await client.uploadFile(namaFileTes);
+const storage = new WebStorage({
+    apiKey: process.env.TEKNOHOLE_API_KEY,
+    storageName: 'my-storage'
+});
 
-        if (uploadResult.success) {
-            console.log(`Upload berhasil. Key: ${uploadResult.data.key}`);
-            
-            const objectKey = uploadResult.data.key;
-            
-            console.log("\n--- Proses Delete ---");
-            const deleteResult = await client.deleteFile(objectKey);
-            
-            if (deleteResult.success) {
-                console.log("Penghapusan berhasil.");
-            } else {
-                console.log(`Penghapusan gagal: ${deleteResult.message}`);
-            }
-        } else {
-            console.log(`Upload gagal: ${uploadResult.message}`);
+// Upload file
+const result = await storage.uploadFile('./image.jpg');
+console.log(result.data.key); // storage-key-123
+
+// List files
+const files = await storage.listFiles({ limit: 10 });
+console.log(files.data);
+
+// Delete file
+await storage.deleteFile('storage-key-123');
+```
+
+### Browser (React)
+```javascript
+import { WebStorage } from '@teknohole/teknohole';
+
+function FileUploader() {
+    const storage = new WebStorage({
+        apiKey: 'your-api-key',
+        storageName: 'my-storage'
+    });
+
+    const handleUpload = async (e) => {
+        const file = e.target.files[0];
+        const result = await storage.uploadFile(file);
+        
+        if (result.success) {
+            console.log('Uploaded:', result.data.key);
         }
-    } catch (error) {
-        console.error("Terjadi error tak terduga:", error);
-    } finally {
-        console.log("\nMembersihkan file sementara...");
-        fs.unlinkSync(namaFileTes);
-        console.log("Selesai.");
-    }
-})();
+    };
+
+    return <input type="file" onChange={handleUpload} />;
+}
+```
+
+### Browser (Vanilla JS)
+```html
+<!DOCTYPE html>
+<html>
+<body>
+    <input type="file" id="fileInput">
+    <button onclick="upload()">Upload</button>
+    
+    <script type="module">
+        import { WebStorage } from 'https://unpkg.com/@teknohole/teknohole@1.2.1/dist/browser.js';
+        
+        const storage = new WebStorage({
+            apiKey: 'your-api-key',
+            storageName: 'my-storage'
+        });
+        
+        window.upload = async () => {
+            const file = document.getElementById('fileInput').files[0];
+            const result = await storage.uploadFile(file);
+            console.log(result);
+        };
+    </script>
+</body>
+</html>
 ```

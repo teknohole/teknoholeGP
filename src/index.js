@@ -21,6 +21,4 @@ if (isNode) {
     throw new Error('Unsupported environment: Neither Node.js nor Browser detected');
 }
 
-// Export both default and named
-export { WebStorage };
 export default WebStorage;

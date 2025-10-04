@@ -1,18 +1,9 @@
 import axios from 'axios';
 
-// Detect environment
-const isNode = typeof window === 'undefined' && typeof global !== 'undefined' && typeof process !== 'undefined';
-const isBrowser = typeof window !== 'undefined';
-
-// Conditional imports for Node.js only
-let fs, path, mime;
-if (isNode) {
-    fs = await import('fs');
-    path = await import('path');
-    mime = await import('mime-types');
-}
-
-export default class WebStorage {
+/**
+ * Base WebStorage class with common functionality for both Node.js and Browser
+ */
+export default class WebStorageBase {
     /**
      * SDK untuk mengunggah dan menghapus file di layanan WebStorage.
      * @param {{apiKey: string, storageName: string}} params
@@ -161,156 +152,6 @@ export default class WebStorage {
     }
 
     /**
-     * Mengunggah satu file ke storage.
-     * Supports both Node.js file paths and browser File objects
-     * @param {string|File} filePathOrFile - File path (Node.js) or File object (Browser)
-     * @returns {Promise<{success: boolean, data?: {key: string}, message?: string}>}
-     */
-    async uploadFile(filePathOrFile) {
-        // Handle Node.js environment
-        if (isNode && typeof filePathOrFile === 'string') {
-            return this._uploadFileNode(filePathOrFile);
-        }
-        
-        // Handle browser environment
-        if (isBrowser && (filePathOrFile instanceof File)) {
-            return this._uploadFileBrowser(filePathOrFile);
-        }
-        
-        // Handle mixed usage - try to detect what we got
-        if (typeof filePathOrFile === 'string') {
-            if (isNode) {
-                return this._uploadFileNode(filePathOrFile);
-            } else {
-                return { success: false, message: 'File path tidak didukung di browser. Gunakan File object.' };
-            }
-        } else if (filePathOrFile instanceof File) {
-            return this._uploadFileBrowser(filePathOrFile);
-        }
-        
-        return { success: false, message: 'Parameter tidak valid. Gunakan file path (Node.js) atau File object (Browser).' };
-    }
-
-    /**
-     * Upload file in Node.js environment
-     * @param {string} filePath 
-     * @returns {Promise<{success: boolean, data?: {key: string}, message?: string}>}
-     */
-    async _uploadFileNode(filePath) {
-        if (!fs.existsSync(filePath)) {
-            return { success: false, message: `File tidak ditemukan: ${filePath}` };
-        }
-
-        const stats = fs.statSync(filePath);
-        const presignPayload = {
-            fileName: path.basename(filePath),
-            fileType: mime.lookup(filePath) || 'application/octet-stream',
-            fileSize: stats.size,
-        };
-
-        const presignResult = await this._requestToService({
-            method: 'POST',
-            url: `/cdn/upload-url/`,
-            data: presignPayload,
-        });
-
-        if (!presignResult.success) {
-            return presignResult;
-        }
-
-        const { url: uploadUrl, key: objectKey } = presignResult.data;
-
-        try {
-            const fileStream = fs.createReadStream(filePath);
-            await axios.put(uploadUrl, fileStream, {
-                headers: {
-                    'Content-Type': presignPayload.fileType,
-                    'Content-Length': presignPayload.fileSize,
-                },
-            });
-
-            return {
-                success: true,
-                message: 'File berhasil diunggah.',
-                data: { key: objectKey },
-            };
-        } catch (error) {
-            if (axios.isAxiosError(error) && error.response) {
-                return {
-                    success: false,
-                    message: `Gagal mengunggah ke storage: ${error.response.status} - ${error.response.statusText}`,
-                };
-            }
-            return { success: false, message: `Koneksi ke storage gagal: ${error.message}` };
-        }
-    }
-
-    /**
-     * Upload file in browser environment
-     * @param {File} file 
-     * @returns {Promise<{success: boolean, data?: {key: string}, message?: string}>}
-     */
-    async _uploadFileBrowser(file) {
-        const presignPayload = {
-            fileName: file.name,
-            fileType: file.type || this._getBrowserMimeType(file.name),
-            fileSize: file.size,
-        };
-
-        // Use browser-compatible request method if axios fails
-        let presignResult;
-        try {
-            presignResult = await this._requestToService({
-                method: 'POST',
-                url: `/cdn/upload-url/`,
-                data: presignPayload,
-            });
-        } catch (error) {
-            // Fallback to fetch if axios fails in browser
-            presignResult = await this._requestToServiceBrowser({
-                method: 'POST',
-                url: '/cdn/upload-url/',
-                data: presignPayload,
-            });
-        }
-
-        if (!presignResult.success) {
-            return presignResult;
-        }
-
-        const { url: uploadUrl, key: objectKey } = presignResult.data;
-
-        try {
-            // Use fetch for browser upload (better compatibility)
-            const uploadResponse = await fetch(uploadUrl, {
-                method: 'PUT',
-                body: file,
-                headers: {
-                    'Content-Type': presignPayload.fileType,
-                },
-            });
-
-            if (!uploadResponse.ok) {
-                return {
-                    success: false,
-                    message: `Gagal mengunggah ke storage: ${uploadResponse.status} - ${uploadResponse.statusText}`,
-                };
-            }
-
-            return {
-                success: true,
-                message: 'File berhasil diunggah.',
-                data: { key: objectKey },
-            };
-        } catch (error) {
-            return { 
-                success: false, 
-                message: `Koneksi ke storage gagal: ${error.message}` 
-            };
-        }
-    }
-
-    /**
      * Menghapus file dari storage menggunakan object key-nya.
      * @param {string} objectKey
      * @returns {Promise<{success: boolean, data?: any, message?: string}>}
@@ -320,23 +161,11 @@ export default class WebStorage {
             return { success: false, message: "Object key diperlukan." };
         }
         
-        // Try axios first, fallback to fetch in browser
-        try {
-            return await this._requestToService({
-                method: 'DELETE',
-                url: `/cdn/delete-object/`,
-                data: { key: objectKey },
-            });
-        } catch (error) {
-            if (isBrowser) {
-                return await this._requestToServiceBrowser({
-                    method: 'DELETE',
-                    url: '/cdn/delete-object/',
-                    data: { key: objectKey },
-                });
-            }
-            throw error;
-        }
+        return await this._requestToService({
+            method: 'DELETE',
+            url: `/cdn/delete-object/`,
+            data: { key: objectKey },
+        });
     }
 
     /**
@@ -344,20 +173,10 @@ export default class WebStorage {
      * @returns {Promise<{success: boolean, data?: any, message?: string}>}
      */
     async getStorageInfo() {
-        try {
-            return await this._requestToService({
-                method: 'GET',
-                url: `/cdn/storages/${this.storageName}/`,
-            });
-        } catch (error) {
-            if (isBrowser) {
-                return await this._requestToServiceBrowser({
-                    method: 'GET',
-                    url: `/cdn/storages/${this.storageName}/`,
-                });
-            }
-            throw error;
-        }
+        return await this._requestToService({
+            method: 'GET',
+            url: `/cdn/storages/${this.storageName}/`,
+        });
     }
 
     /**
@@ -374,20 +193,10 @@ export default class WebStorage {
         
         const url = `/cdn/storages/${this.storageName}/files/?${queryParams.toString()}`;
         
-        try {
-            return await this._requestToService({
-                method: 'GET',
-                url,
-            });
-        } catch (error) {
-            if (isBrowser) {
-                return await this._requestToServiceBrowser({
-                    method: 'GET',
-                    url,
-                });
-            }
-            throw error;
-        }
+        return await this._requestToService({
+            method: 'GET',
+            url,
+        });
     }
 
     /**
@@ -447,5 +256,14 @@ export default class WebStorage {
             }
             return results;
         }
+    }
+
+    /**
+     * Upload file - to be implemented by child classes
+     * @param {string|File} filePathOrFile
+     * @returns {Promise<{success: boolean, data?: {key: string}, message?: string}>}
+     */
+    async uploadFile(filePathOrFile) {
+        throw new Error('uploadFile() harus diimplementasikan oleh child class');
     }
 }
