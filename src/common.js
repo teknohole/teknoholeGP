@@ -14,7 +14,7 @@ export default class WebStorageBase {
         }
         this.apiKey = apiKey;
         this.storageName = storageName;
-        this.serviceUrl = 'https://storage.teknohole.com';
+        this.serviceUrl = 'https://storage.teknohole.com/api';
     }
 
     _getServiceHeaders() {

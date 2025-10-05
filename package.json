@@ -1,6 +1,6 @@
 {
   "name": "@teknohole/teknohole",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Package resmi teknohole.com - SDK untuk WebStorage upload dan manajemen file",
   "keywords": [
     "teknohole",
